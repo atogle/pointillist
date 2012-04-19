@@ -40,7 +40,17 @@
     <div class="navbar">
       <div class="navbar-inner">
         <div class="container">
+           <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </a>
            <a class="brand" href="#">Pointillist Demo</a>
+           <div class="nav-collapse">
+             <form class="navbar-search pull-right" action="">
+              <input type="text" class="search-query span4" placeholder="Search Tweets">
+            </form>
+          </div>
         </div>
       </div>
     </div>
@@ -60,18 +70,23 @@
     <script src="js/pointillist.js"></script>
     <script>
       var map = new L.Map('map'),
+          layerGroup = new L.LayerGroup(),
           cloudmadeUrl = 'http://{s}.tile.cloudmade.com/BC9A493B41014CAABB98F0471D759707/54789/256/{z}/{x}/{y}.png',
           cloudmadeAttribution = 'Map data &copy; 2011 OpenStreetMap contributors, Imagery &copy; 2011 CloudMade',
           cloudmade = new L.TileLayer(cloudmadeUrl, {maxZoom: 18, attribution: cloudmadeAttribution}),
           layers = {},
+          rectangle = true,
           tree;
 
-      map.setView(new L.LatLng(39.828175, -98.579500), 4).addLayer(cloudmade);
+      map.setView(new L.LatLng(39.828175, -98.579500), 4)
+        .addLayer(cloudmade)
+        .addLayer(layerGroup);
+
 
       Pointillist.Cell.prototype.expand = function() {
         var i;
 
-        map.removeLayer(layers[[this.x, this.y, this.z]]);
+        layerGroup.removeLayer(layers[[this.x, this.y, this.z]]);
         delete layers[[this.x, this.y, this.z]];
 
         for(i=0; i<this.children.length; i++) {
@@ -81,28 +96,42 @@
         draw();
       };
 
-      // map.on('click', function(evt) {
-      //   addPoint(evt.latlng.lat, evt.latlng.lng);
-      // });
+      map.on('click', function(evt) {
+        // console.log(evt.latlng);
+        addPoint(evt.latlng.lat, evt.latlng.lng);
+      });
 
       function makeLayer(cell) {
         var c = cell.getLatLonCenter(),
-            ll = new L.LatLng(c[0], c[1]);
+            ll = new L.LatLng(c[0], c[1]),
+            b = new L.LatLngBounds(
+              new L.LatLng(cell.latLonBounds[0], cell.latLonBounds[1]),
+              new L.LatLng(cell.latLonBounds[2], cell.latLonBounds[3])
+            );
 
-        return new L.Circle(ll, ll.distanceTo(new L.LatLng(cell.latLonBounds[2], ll.lng)), {
-          weight: 1,
+        return new L.Rectangle(b, {
+          weight: 0.5,
           opacity: 0.8
-        });
+        });;
+
+        // return new L.Circle(ll, ll.distanceTo(new L.LatLng(cell.latLonBounds[2], ll.lng)), {
+        //   weight: 1,
+        //   opacity: 0.8
+        // });
       }
 
       function draw() {
         for (key in layers) {
-          map.addLayer(layers[key]);
+          layerGroup.addLayer(layers[key]);
         }
       }
 
-      function init() {
+      function init(query) {
         var i;
+
+        layerGroup.clearLayers();
+
+        layers = {};
         tree = new Pointillist.Tree({
           maxZoom: 11
         });
@@ -111,14 +140,32 @@
           layers[[tree.topCells[i].x, tree.topCells[i].y, tree.topCells[i].z]] = makeLayer(tree.topCells[i]);
         }
         draw();
+
+        getTweets(query, function(tweets) {
+          var i;
+          for (i=0; i<tweets.results.length; i++) {
+            if (tweets.results[i].location) {
+              (function(tweet, ii){
+                setTimeout(function(){
+                  geocode(tweet.location, function(res){
+                    // console.log(res.latitude + ' ' + tweet.location)
+                    // console.log(res);
+                    addPoint(parseFloat(res.latitude), parseFloat(res.longitude));
+                  });
+                }, 100*ii);
+              })(tweets.results[i], i);
+            }
+          }
+          // console.log(tweets);
+        });
       }
 
-      function getTweets(callback) {
+      function getTweets(query, callback) {
         $.ajax({
             url: 'http://search.twitter.com/search.json',
             dataType: 'jsonp',
             data: {
-              q: 'beautiful weather',
+              q: query,
               rpp: 100,
               geocode: '39.828175,-98.579500,1500mi'
 
@@ -161,23 +208,11 @@
       }
 
       $(document).ready(function(){
-        init();
-
-        getTweets(function(tweets) {
-          var i;
-          for (i=0; i<tweets.results.length; i++) {
-            (function(tweet, ii){
-              setTimeout(function(){
-                geocode(tweet.location, function(res){
-                  // console.log(res);
-                  addPoint(parseInt(res.latitude, 10), parseInt(res.longitude, 10));
-                });
-              }, 100*ii);
-            })(tweets.results[i], i);
-          }
-          // console.log(tweets);
-        })
-      })
+        $('.navbar-search').submit(function(evt) {
+          evt.preventDefault();
+          init($('.search-query').val());
+        });
+      });
     </script>
 
   </body>
