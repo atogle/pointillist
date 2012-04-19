@@ -63,9 +63,10 @@
           cloudmadeUrl = 'http://{s}.tile.cloudmade.com/BC9A493B41014CAABB98F0471D759707/54789/256/{z}/{x}/{y}.png',
           cloudmadeAttribution = 'Map data &copy; 2011 OpenStreetMap contributors, Imagery &copy; 2011 CloudMade',
           cloudmade = new L.TileLayer(cloudmadeUrl, {maxZoom: 18, attribution: cloudmadeAttribution}),
-          layers = {};
+          layers = {},
+          tree;
 
-      map.setView(new L.LatLng(39.828175, -98.579500), 1).addLayer(cloudmade);
+      map.setView(new L.LatLng(39.828175, -98.579500), 4).addLayer(cloudmade);
 
       Pointillist.Cell.prototype.expand = function() {
         var i;
@@ -80,10 +81,9 @@
         draw();
       };
 
-      map.on('click', function(evt) {
-        console.log(evt);
-        Pointillist.root.addPoint(evt.latlng.lat, evt.latlng.lng);
-      });
+      // map.on('click', function(evt) {
+      //   addPoint(evt.latlng.lat, evt.latlng.lng);
+      // });
 
       function makeLayer(cell) {
         var c = cell.getLatLonCenter(),
@@ -101,9 +101,83 @@
         }
       }
 
-      layers[[Pointillist.root.x, Pointillist.root.y, Pointillist.root.z]] = makeLayer(Pointillist.root);
-      draw();
+      function init() {
+        var i;
+        tree = new Pointillist.Tree({
+          maxZoom: 11
+        });
 
+        for (i=0; i<tree.topCells.length; i++) {
+          layers[[tree.topCells[i].x, tree.topCells[i].y, tree.topCells[i].z]] = makeLayer(tree.topCells[i]);
+        }
+        draw();
+      }
+
+      function getTweets(callback) {
+        $.ajax({
+            url: 'http://search.twitter.com/search.json',
+            dataType: 'jsonp',
+            data: {
+              q: 'beautiful weather',
+              rpp: 100,
+              geocode: '39.828175,-98.579500,1500mi'
+
+            },
+            success: function(data){
+              callback(data);
+            }
+        });
+      }
+
+      function geocode(addr, callback) {
+        $.ajax({
+          dataType: 'jsonp',
+          data: {
+            q: 'select * from geo.placefinder where text="'+addr+'"',
+            format: 'json',
+            appid: 'test'
+          },
+          url: 'http://query.yahooapis.com/v1/public/yql',
+          success: function (res) {
+            if (res.query.count || (res.query.results && $.isArray(res.query.results.Result) && res.query.results.Result.length > 0)) {
+              // For some reason, this sometimes comes back as an array. Sad.
+              if ($.isArray(res.query.results.Result)) {
+                callback(res.query.results.Result[0]);
+              } else {
+                callback(res.query.results.Result);
+              }
+            }
+          }
+        });
+      }
+
+      function addPoint(lat, lon) {
+        var i;
+
+        for (i=0; i<tree.topCells.length; i++) {
+          // addPoint checks to make sure the lat/lon is contained
+          tree.topCells[i].addPoint(lat, lon);
+        }
+      }
+
+      $(document).ready(function(){
+        init();
+
+        getTweets(function(tweets) {
+          var i;
+          for (i=0; i<tweets.results.length; i++) {
+            (function(tweet, ii){
+              setTimeout(function(){
+                geocode(tweet.location, function(res){
+                  // console.log(res);
+                  addPoint(parseInt(res.latitude, 10), parseInt(res.longitude, 10));
+                });
+              }, 100*ii);
+            })(tweets.results[i], i);
+          }
+          // console.log(tweets);
+        })
+      })
     </script>
 
   </body>

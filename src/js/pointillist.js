@@ -1,40 +1,58 @@
 var Pointillist = Pointillist || {};
 
 (function(P) {
-  var options = {
-        rootX: 0,
-        rootY: 1,
-        rootZ: 1,
-        maxZoom: 6
-      },
-      self = {};
+  var mercator = new GlobalMercator();
+
+  function merge(o1, o2) {
+    for (var key in o2) { o1[key] = o2[key]; }
+    return o1;
+  }
+
+  P.Tree = function(o) {
+    var options = merge({
+          initBounds: [24.521000, -124.762520, 49.384472, -66.932640],
+          minZoom: 4,
+          maxZoom: 6
+        }, o),
+        mSw = mercator.LatLonToMeters(options.initBounds[0], options.initBounds[1]),
+        mNe = mercator.LatLonToMeters(options.initBounds[2], options.initBounds[3]),
+        tSw = mercator.MetersToTile(mSw[0], mSw[1], options.minZoom),
+        tNe = mercator.MetersToTile(mNe[0], mNe[1], options.minZoom),
+        x, y;
+
+    P.Cell.prototype.maxZoom = options.maxZoom;
+
+    this.topCells = [];
+    for (x=tSw[0]; x<=tNe[0]; x++) {
+      for (y=tSw[1]; y<=tNe[1]; y++) {
+        this.topCells.push(new P.Cell(x, y, options.minZoom));
+      }
+    }
+  };
 
   P.Cell = function(x, y, z, parent) {
     this.z = z;
     this.y = y;
     this.x = x;
 
-    this.bounds = this.mercator.TileBounds(this.x, this.y, this.z);
-    this.latLonBounds = this.mercator.TileLatLonBounds(this.x, this.y, this.z);
+    this.bounds = mercator.TileBounds(this.x, this.y, this.z);
+    this.latLonBounds = mercator.TileLatLonBounds(this.x, this.y, this.z);
 
     this.count = 0;
     this.expanded = false;
 
-    console.log('Making cell ', x, y, z, this.getLatLonCenter());
+    // console.log('Making cell ', x, y, z, this.getLatLonCenter());
 
     this.parent = parent;
     this.children = this.makeChildren();
   };
 
   P.Cell.prototype = {
-    mercator: new GlobalMercator(),
-    maxZoom: options.maxZoom,
-
     getLatLonCenter: function() {
       var mx = (this.bounds[0] + this.bounds[2]) / 2,
           my = (this.bounds[1] + this.bounds[3]) / 2;
 
-      return this.mercator.MetersToLatLon(mx, my, this.z);
+      return mercator.MetersToLatLon(mx, my, this.z);
     },
 
     getRadius: function() {
@@ -48,10 +66,10 @@ var Pointillist = Pointillist || {};
       if (this.z < this.maxZoom) {
 
         childZ = this.z+1;
-        ne = this.mercator.MetersToTile(this.bounds[2]-1, this.bounds[3]-1, childZ);
-        se = this.mercator.MetersToTile(this.bounds[2]-1, this.bounds[1]+1, childZ);
-        sw = this.mercator.MetersToTile(this.bounds[0]+1, this.bounds[1]+1, childZ);
-        nw = this.mercator.MetersToTile(this.bounds[0]+1, this.bounds[3]-1, childZ);
+        ne = mercator.MetersToTile(this.bounds[2]-1, this.bounds[3]-1, childZ);
+        se = mercator.MetersToTile(this.bounds[2]-1, this.bounds[1]+1, childZ);
+        sw = mercator.MetersToTile(this.bounds[0]+1, this.bounds[1]+1, childZ);
+        nw = mercator.MetersToTile(this.bounds[0]+1, this.bounds[3]-1, childZ);
 
         return [
           new P.Cell(ne[0], ne[1], childZ, this),
@@ -85,8 +103,8 @@ var Pointillist = Pointillist || {};
           this.expanded = true;
         }
 
-        console.log('adding to ', this.x, this.y, this.z);
-        console.log('expanded ', this.expanded);
+        // console.log('adding to ', this.x, this.y, this.z);
+        // console.log('expanded ', this.expanded);
       }
     },
 
@@ -96,6 +114,4 @@ var Pointillist = Pointillist || {};
 
     expand: function() {}
   };
-
-  P.root = new P.Cell(options.rootX, options.rootY, options.rootZ, null);
 })(Pointillist);
