@@ -86,12 +86,10 @@
       });
 
       function makeLayer(cell) {
-        var b = new L.LatLngBounds(
-          new L.LatLng(cell.latLonBounds[0], cell.latLonBounds[1]),
-          new L.LatLng(cell.latLonBounds[2], cell.latLonBounds[3])
-        );
+        var c = cell.getLatLonCenter(),
+            ll = new L.LatLng(c[0], c[1]);
 
-        return new L.Rectangle(b, {
+        return new L.Circle(ll, ll.distanceTo(new L.LatLng(cell.latLonBounds[2], ll.lng)), {
           weight: 1,
           opacity: 0.8
         });
