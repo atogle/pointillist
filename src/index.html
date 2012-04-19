@@ -75,7 +75,6 @@
           cloudmadeAttribution = 'Map data &copy; 2011 OpenStreetMap contributors, Imagery &copy; 2011 CloudMade',
           cloudmade = new L.TileLayer(cloudmadeUrl, {maxZoom: 18, attribution: cloudmadeAttribution}),
           layers = {},
-          rectangle = true,
           tree;
 
       map.setView(new L.LatLng(39.828175, -98.579500), 4)
@@ -83,24 +82,31 @@
         .addLayer(layerGroup);
 
 
+      // Update the map when a cell expands
       Pointillist.Cell.prototype.expand = function() {
         var i;
 
+        // Remove this cell from the map
         layerGroup.removeLayer(layers[[this.x, this.y, this.z]]);
+        // Remove this cell from the cache
         delete layers[[this.x, this.y, this.z]];
 
+        // Add the children to the cache
         for(i=0; i<this.children.length; i++) {
           layers[[this.children[i].x, this.children[i].y, this.children[i].z]] = makeLayer(this.children[i]);
         }
 
+        // Draw the cached layers
         draw();
       };
 
-      map.on('click', function(evt) {
-        // console.log(evt.latlng);
-        addPoint(evt.latlng.lat, evt.latlng.lng);
-      });
+      // Debugging code
+      // map.on('click', function(evt) {
+      //   // console.log(evt.latlng);
+      //   addPoint(evt.latlng.lat, evt.latlng.lng);
+      // });
 
+      // Helper function to make a layer for the cell
       function makeLayer(cell) {
         var c = cell.getLatLonCenter(),
             ll = new L.LatLng(c[0], c[1]),
@@ -114,52 +120,32 @@
           opacity: 0.8
         });;
 
+        // A circle representation
+        // TODO: Make this configurable?
         // return new L.Circle(ll, ll.distanceTo(new L.LatLng(cell.latLonBounds[2], ll.lng)), {
         //   weight: 1,
         //   opacity: 0.8
         // });
       }
 
+      // Draw cached layers to the map
       function draw() {
         for (key in layers) {
           layerGroup.addLayer(layers[key]);
         }
       }
 
-      function init(query) {
+      // Add point to the tree
+      function addPoint(lat, lon) {
         var i;
 
-        layerGroup.clearLayers();
-
-        layers = {};
-        tree = new Pointillist.Tree({
-          maxZoom: 11
-        });
-
         for (i=0; i<tree.topCells.length; i++) {
-          layers[[tree.topCells[i].x, tree.topCells[i].y, tree.topCells[i].z]] = makeLayer(tree.topCells[i]);
+          // addPoint checks to make sure the lat/lon is contained
+          tree.topCells[i].addPoint(lat, lon);
         }
-        draw();
-
-        getTweets(query, function(tweets) {
-          var i;
-          for (i=0; i<tweets.results.length; i++) {
-            if (tweets.results[i].location) {
-              (function(tweet, ii){
-                setTimeout(function(){
-                  geocode(tweet.location, function(res){
-                    // console.log(res.latitude + ' ' + tweet.location)
-                    // console.log(res);
-                    addPoint(parseFloat(res.latitude), parseFloat(res.longitude));
-                  });
-                }, 100*ii);
-              })(tweets.results[i], i);
-            }
-          }
-          // console.log(tweets);
-        });
       }
 
+      // Fetch tweets, 100 at a time, 1500 miles from the center of the US
       function getTweets(query, callback) {
         $.ajax({
             url: 'http://search.twitter.com/search.json',
@@ -176,6 +162,7 @@
         });
       }
 
+      // Geocode using Yahoo!
       function geocode(addr, callback) {
         $.ajax({
           dataType: 'jsonp',
@@ -198,13 +185,47 @@
         });
       }
 
-      function addPoint(lat, lon) {
+      // Init the app with a query for Twitter
+      function init(query) {
         var i;
 
+        // Clear the layers
+        layerGroup.clearLayers();
+        layers = {};
+
+        // Init the treee
+        tree = new Pointillist.Tree({
+          maxZoom: 11
+        });
+
         for (i=0; i<tree.topCells.length; i++) {
-          // addPoint checks to make sure the lat/lon is contained
-          tree.topCells[i].addPoint(lat, lon);
+          layers[[tree.topCells[i].x, tree.topCells[i].y, tree.topCells[i].z]] = makeLayer(tree.topCells[i]);
         }
+        draw();
+
+        // Fetch tweets
+        getTweets(query, function(tweets) {
+          var i;
+          for (i=0; i<tweets.results.length; i++) {
+            // If the tweet has a location
+            if (tweets.results[i].location) {
+              // Delayed geocode of the location
+              (function(tweet, ii){
+                setTimeout(function(){
+                  // Geocode
+                  geocode(tweet.location, function(res){
+                    // console.log(res.latitude + ' ' + tweet.location)
+                    // console.log(res);
+
+                    // Add point to the tree
+                    addPoint(parseFloat(res.latitude), parseFloat(res.longitude));
+                  });
+                }, 100*ii);
+              })(tweets.results[i], i);
+            }
+          }
+          // console.log(tweets);
+        });
       }
 
       $(document).ready(function(){
