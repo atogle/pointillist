@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>Pointillist</title>
+    <title>Ravenna</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="">
     <meta name="author" content="">
@@ -19,6 +19,7 @@
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
+    <link href="css/style.css" rel="stylesheet">
 
     <!-- Le fav and touch icons -->
     <link rel="shortcut icon" href="lib/bootstrap-2.0.2/ico/favicon.ico">
@@ -31,25 +32,43 @@
     <div class="navbar">
       <div class="navbar-inner">
         <div class="container">
-           <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+<!--            <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </a>
-           <a class="brand" href="#">Pointillist Demo</a>
-           <div class="nav-collapse">
-             <form class="navbar-search pull-right" action="">
-              <input type="text" class="search-query span4" placeholder="Search Tweets">
-            </form>
-          </div>
+ -->
+           <a class="brand" href="#">Ravenna Demo</a>
         </div>
       </div>
     </div>
 
     <div class="container-fluid">
       <div class="row-fluid">
-        <div class="span12">
+        <div class="span10">
           <div id="map"></div>
+        </div>
+        <div class="span2">
+          <ul class="cell-colors">
+            <li>
+              <label class="radio">
+                <input type="radio" name="color" id="red" value="#E41A1C" checked="checked">
+                Red
+              </label>
+            </li>
+            <li>
+              <label class="radio">
+                <input type="radio" name="color" id="blue" value="#377EB8">
+                Blue
+              </label>
+            </li>
+            <li>
+              <label class="radio">
+                <input type="radio" name="color" id="green" value="#4DAF4A">
+                Green
+              </label>
+            </li>
+          </ul>
         </div>
       </div>
     </div>
@@ -60,42 +79,39 @@
     <script src="lib/globalmaptiles.js"></script>
     <script src="js/pointillist.js"></script>
     <script>
-      var map = new L.Map('map'),
+      var map = new L.Map('map', {'dragging': false}),
           layerGroup = new L.LayerGroup(),
           cloudmadeUrl = 'http://{s}.tile.cloudmade.com/BC9A493B41014CAABB98F0471D759707/54789/256/{z}/{x}/{y}.png',
           cloudmadeAttribution = 'Map data &copy; 2011 OpenStreetMap contributors, Imagery &copy; 2011 CloudMade',
           cloudmade = new L.TileLayer(cloudmadeUrl, {maxZoom: 18, attribution: cloudmadeAttribution}),
           layers = {},
-          tree;
+          tree,
+          drawing = false;
 
       map.setView(new L.LatLng(39.828175, -98.579500), 4)
         .addLayer(cloudmade)
         .addLayer(layerGroup);
 
 
-      // Update the map when a cell expands
-      Pointillist.Cell.prototype.expand = function() {
-        var i;
-
-        // Remove this cell from the map
-        layerGroup.removeLayer(layers[[this.x, this.y, this.z]]);
-        // Remove this cell from the cache
-        delete layers[[this.x, this.y, this.z]];
-
-        // Add the children to the cache
-        for(i=0; i<this.children.length; i++) {
-          layers[[this.children[i].x, this.children[i].y, this.children[i].z]] = makeLayer(this.children[i]);
+      // // Update the map when a cell expands
+      Pointillist.Cell.prototype.onAdd = function() {
+        var color = $('.cell-colors input:checked').val();
+        if (drawing) {
+          layers[[this.x, this.y, this.z]].setStyle({'color': color});
         }
-
-        // Draw the cached layers
-        draw();
       };
 
-      // Debugging code
-      // map.on('click', function(evt) {
-      //   // console.log(evt.latlng);
-      //   addPoint(evt.latlng.lat, evt.latlng.lng);
-      // });
+      map.on('mousemove', function(evt) {
+        addPoint(evt.latlng.lat, evt.latlng.lng);
+      });
+
+      map.on('mousedown', function(evt) {
+        drawing = true;
+      });
+
+      $(window).on('mouseup', function(evt) {
+        drawing = false;
+      });
 
       // Helper function to make a layer for the cell
       function makeLayer(cell) {
@@ -107,16 +123,11 @@
             );
 
         return new L.Rectangle(b, {
+          color: '#aaa',
           weight: 0.5,
-          opacity: 0.8
-        });;
-
-        // A circle representation
-        // TODO: Make this configurable?
-        // return new L.Circle(ll, ll.distanceTo(new L.LatLng(cell.latLonBounds[2], ll.lng)), {
-        //   weight: 1,
-        //   opacity: 0.8
-        // });
+          opacity: 0.9,
+          fillOpacity: 0.7
+        });
       }
 
       // Draw cached layers to the map
@@ -136,48 +147,7 @@
         }
       }
 
-      // Fetch tweets, 100 at a time, 1500 miles from the center of the US
-      function getTweets(query, callback) {
-        $.ajax({
-            url: 'http://search.twitter.com/search.json',
-            dataType: 'jsonp',
-            data: {
-              q: query,
-              rpp: 100,
-              geocode: '39.828175,-98.579500,1500mi'
-
-            },
-            success: function(data){
-              callback(data);
-            }
-        });
-      }
-
-      // Geocode using Yahoo!
-      function geocode(addr, callback) {
-        $.ajax({
-          dataType: 'jsonp',
-          data: {
-            q: 'select * from geo.placefinder where text="'+addr+'"',
-            format: 'json',
-            appid: 'test'
-          },
-          url: 'http://query.yahooapis.com/v1/public/yql',
-          success: function (res) {
-            if (res.query.count || (res.query.results && $.isArray(res.query.results.Result) && res.query.results.Result.length > 0)) {
-              // For some reason, this sometimes comes back as an array. Sad.
-              if ($.isArray(res.query.results.Result)) {
-                callback(res.query.results.Result[0]);
-              } else {
-                callback(res.query.results.Result);
-              }
-            }
-          }
-        });
-      }
-
-      // Init the app with a query for Twitter
-      function init(query) {
+      function init() {
         var i;
 
         // Clear the layers
@@ -186,44 +156,18 @@
 
         // Init the treee
         tree = new Pointillist.Tree({
-          maxZoom: 11
+          minZoom: 8,
+          maxZoom: 8
         });
 
         for (i=0; i<tree.topCells.length; i++) {
           layers[[tree.topCells[i].x, tree.topCells[i].y, tree.topCells[i].z]] = makeLayer(tree.topCells[i]);
         }
         draw();
-
-        // Fetch tweets
-        getTweets(query, function(tweets) {
-          var i;
-          for (i=0; i<tweets.results.length; i++) {
-            // If the tweet has a location
-            if (tweets.results[i].location) {
-              // Delayed geocode of the location
-              (function(tweet, ii){
-                setTimeout(function(){
-                  // Geocode
-                  geocode(tweet.location, function(res){
-                    // console.log(res.latitude + ' ' + tweet.location)
-                    // console.log(res);
-
-                    // Add point to the tree
-                    addPoint(parseFloat(res.latitude), parseFloat(res.longitude));
-                  });
-                }, 100*ii);
-              })(tweets.results[i], i);
-            }
-          }
-          // console.log(tweets);
-        });
       }
 
       $(document).ready(function(){
-        $('.navbar-search').submit(function(evt) {
-          evt.preventDefault();
-          init($('.search-query').val());
-        });
+        init();
       });
     </script>
 

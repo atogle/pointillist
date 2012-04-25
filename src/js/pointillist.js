@@ -119,6 +119,8 @@ var Pointillist = Pointillist || {};
         // Count this point
         this.count++;
 
+        this.onAdd();
+
         // Expand if appropriate
         if (!this.expanded && this.canExpand()) {
           this.expand();
@@ -138,6 +140,9 @@ var Pointillist = Pointillist || {};
     },
 
     // No op function that can be overridden
-    expand: function() {}
+    expand: function() {},
+
+    // No op function that can be overridden
+    onAdd: function() {}
   };
 })(Pointillist);
