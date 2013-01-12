@@ -9,9 +9,9 @@
 
     <!-- Le styles -->
     <link href="lib/bootstrap-2.0.2/css/bootstrap.css" rel="stylesheet">
-    <link rel="stylesheet" href="lib/leaflet-0.3.1/leaflet.css" />
+    <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.4.5/leaflet.css" />
     <!--[if lte IE 8]>
-        <link rel="stylesheet" href="lib/leaflet-0.3.1/leaflet.ie.css" />
+        <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.4.5/leaflet.ie.css" />
     <![endif]-->
     <link rel="stylesheet" href="css/bootstrap.map.css" />
     <link href="lib/bootstrap-2.0.2/css/bootstrap-responsive.css" rel="stylesheet">
@@ -57,8 +57,8 @@
           <ul class="cell-colors">
             <li>
               <label class="radio">
-                <input type="radio" name="color" id="red" value="#E41A1C" checked="checked">
-                Red
+                <input type="radio" name="color" id="orange" value="#FF7F00" checked="checked">
+                Orange
               </label>
             </li>
             <li>
@@ -73,41 +73,50 @@
                 Green
               </label>
             </li>
+            <li>
+              <label class="radio">
+                <input type="radio" name="color" id="erase" value="#888">
+                Erase
+              </label>
+            </li>
           </ul>
         </div>
       </div>
     </div>
 
-    <script src="lib/leaflet-0.4b/leaflet.js"></script>
-    <script src="lib/jquery-1.7.1/jquery.min.js"></script>
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+    <script src="http://cdn.leafletjs.com/leaflet-0.4.5/leaflet-src.js"></script>
     <script src="lib/bootstrap-2.0.2/js/bootstrap.min.js"></script>
     <script src="lib/globalmaptiles.js"></script>
     <script src="js/pointillist.js"></script>
     <script>
       var map = new L.Map('map', {'dragging': false}),
           layerGroup = new L.LayerGroup(),
-          cloudmadeUrl = 'http://{s}.tile.cloudmade.com/BC9A493B41014CAABB98F0471D759707/54789/256/{z}/{x}/{y}.png',
-          cloudmadeAttribution = 'Map data &copy; 2011 OpenStreetMap contributors, Imagery &copy; 2011 CloudMade',
-          cloudmade = new L.TileLayer(cloudmadeUrl, {maxZoom: 18, attribution: cloudmadeAttribution}),
+          baseUrl = 'http://{s}.tiles.mapbox.com/v3/openplans.map-dmar86ym/{z}/{x}/{y}.png',
+          baseAttribution = '&copy; OpenStreetMap contributors, CC-BY-SA. <a href="http://mapbox.com/about/maps" target="_blank">Terms &amp; Feedback</a>',
+          base = new L.TileLayer(baseUrl, {maxZoom: 18, attribution: baseAttribution}),
           layers = {},
           tree,
           drawing = false;
 
-      map.setView(new L.LatLng(39.828175, -98.579500), 4)
-        .addLayer(cloudmade)
+      map.setView([39.7394, -104.9858], 15)
+        .addLayer(base)
         .addLayer(layerGroup);
 
 
-      // // Update the map when a cell expands
+      // Update the map when a cell expands
       Pointillist.Cell.prototype.onAdd = function() {
-        var color = $('.cell-colors input:checked').val();
-        if (drawing) {
-          layers[[this.x, this.y, this.z]].setStyle({'color': color});
-        }
+        var $input = $('.cell-colors input:checked'),
+            color = $input.val(),
+            fillOpacity = $input.attr('id') === 'erase'? 0.2 : 0.6;
+
+        layers[[this.x, this.y, this.z]].setStyle({'color': color, 'fillOpacity': fillOpacity});
       };
 
       map.on('mousemove', function(evt) {
-        addPoint(evt.latlng.lat, evt.latlng.lng);
+        if (drawing) {
+          addPoint(evt.latlng.lat, evt.latlng.lng);
+        }
       });
 
       map.on('mousedown', function(evt) {
@@ -128,10 +137,10 @@
             );
 
         return new L.Rectangle(b, {
-          color: '#aaa',
+          color: '#888',
           weight: 0.5,
           opacity: 0.9,
-          fillOpacity: 0.7
+          fillOpacity: 0.2
         });
       }
 
@@ -161,8 +170,10 @@
 
         // Init the treee
         tree = new Pointillist.Tree({
-          minZoom: 8,
-          maxZoom: 8
+          minZoom: 19,
+          maxZoom: 19,
+          bounds: [ [39.7172, -105.0228], [39.7612, -104.9466] ]
+
         });
 
         for (i=0; i<tree.topCells.length; i++) {
