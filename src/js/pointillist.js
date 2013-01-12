@@ -14,13 +14,13 @@ var Pointillist = Pointillist || {};
   P.Tree = function(o) {
     // Default options
     var options = merge({
-          initBounds: [24.521000, -124.762520, 49.384472, -66.932640],
+          bounds: [[24.521000, -124.762520], [49.384472, -66.932640]],
           minZoom: 4,
           maxZoom: 6
         }, o),
         // Bounds in mercator meters
-        mSw = mercator.LatLonToMeters(options.initBounds[0], options.initBounds[1]),
-        mNe = mercator.LatLonToMeters(options.initBounds[2], options.initBounds[3]),
+        mSw = mercator.LatLonToMeters(options.bounds[0][0], options.bounds[0][1]),
+        mNe = mercator.LatLonToMeters(options.bounds[1][0], options.bounds[1][1]),
         // Bounds in tile coordinates
         tSw = mercator.MetersToTile(mSw[0], mSw[1], options.minZoom),
         tNe = mercator.MetersToTile(mNe[0], mNe[1], options.minZoom),
