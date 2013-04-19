@@ -74,6 +74,13 @@ var Pointillist = Pointillist || {};
       return (this.bounds[3] - this.bounds[1]) / Math.pow(4, this.z);
     },
 
+    getArea: function() {
+      var width = this.bounds[2] - this.bounds[0],
+          height = this.bounds[3] - this.bounds[1];
+
+      return width * height;
+    },
+
     makeChildren: function() {
       var childZ, ne, se, sw, nw;
 
