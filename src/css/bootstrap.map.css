@@ -25,7 +25,6 @@ body.map {
 .map .row-fluid > [class*="span"] {
   position:relative;
   height:100%;
-  background-color:#efefef;
 }
 
 .map #map {

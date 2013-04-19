@@ -50,36 +50,32 @@
 
     <div class="container-fluid">
       <div class="row-fluid">
-        <div class="span10">
+        <div class="span9">
           <div id="map"></div>
         </div>
-        <div class="span2">
-          <ul class="cell-colors">
-            <li>
-              <label class="radio">
-                <input type="radio" name="color" id="orange" value="#FF7F00" checked="checked">
-                Orange
-              </label>
-            </li>
-            <li>
-              <label class="radio">
-                <input type="radio" name="color" id="blue" value="#377EB8">
-                Blue
-              </label>
-            </li>
-            <li>
-              <label class="radio">
-                <input type="radio" name="color" id="green" value="#4DAF4A">
-                Green
-              </label>
-            </li>
-            <li>
-              <label class="radio">
-                <input type="radio" name="color" id="erase" value="#888">
-                Erase
-              </label>
-            </li>
-          </ul>
+        <div class="span3">
+          <div class="well">
+            <div id="cell-colors" class="btn-group">
+              <button data-id="orange" data-color="#FF7F00" class="btn btn-warning active">Orange</button>
+              <button data-id="blue"   data-color="#377EB8" class="btn btn-info">Blue</button>
+              <button data-id="green"  data-color="#4DAF4A" class="btn btn-success">Green</button>
+              <button data-id="erase"  data-color="#888888" class="btn">Erase</button>
+            </div>
+
+            <dl class="dl-horizontal">
+              <dt><span class="label label-warning">Orange</span></dt>
+              <dd><strong id="orange-count">0</strong> cells</dd>
+              <dd><strong id="orange-area">0</strong> m<sup>2</sup></dd>
+
+              <dt><span class="label label-info">Blue</span></dt>
+              <dd><strong id="blue-count">0</strong> cells</dd>
+              <dd><strong id="blue-area">0</strong> m<sup>2</sup></dd>
+
+              <dt><span class="label label-success">Green</span></dt>
+              <dd><strong id="green-count">0</strong> cells</dd>
+              <dd><strong id="green-area">0</strong> m<sup>2</sup></dd>
+            </dl>
+          </div>
         </div>
       </div>
     </div>
@@ -90,6 +86,28 @@
     <script src="lib/globalmaptiles.js"></script>
     <script src="js/pointillist.js"></script>
     <script>
+      function getCellStats(obj) {
+        var stats = {},
+            size = 0,
+            area = 0,
+            key;
+
+        for (key in obj) {
+          if (obj.hasOwnProperty(key)) {
+            if (stats[obj[key].id]) {
+              stats[obj[key].id].size++;
+              stats[obj[key].id].area += obj[key].area;
+            } else {
+              stats[obj[key].id] = {
+                size: 1,
+                area: obj[key].area
+              };
+            }
+          }
+        }
+        return stats;
+      }
+
       var map = new L.Map('map', {'dragging': false}),
           layerGroup = new L.LayerGroup(),
           baseUrl = 'http://{s}.tiles.mapbox.com/v3/openplans.map-dmar86ym/{z}/{x}/{y}.png',
@@ -97,20 +115,45 @@
           base = new L.TileLayer(baseUrl, {maxZoom: 18, attribution: baseAttribution}),
           layers = {},
           tree,
+          color,
+          selectedCells = {},
           drawing = false;
 
       map.setView([39.7394, -104.9858], 15)
         .addLayer(base)
         .addLayer(layerGroup);
 
+      // Handle button clicks
+      $('#cell-colors button').click(function(evt) {
+        $(evt.target).siblings().removeClass('active');
+        $(evt.target).addClass('active');
+      });
 
       // Update the map when a cell expands
       Pointillist.Cell.prototype.onAdd = function() {
-        var $input = $('.cell-colors input:checked'),
-            color = $input.val(),
-            fillOpacity = $input.attr('id') === 'erase'? 0.2 : 0.6;
+        var $el = $('#cell-colors .btn.active'),
+            color = $el.attr('data-color'),
+            id = $el.attr('data-id'),
+            layer = layers[[this.x, this.y, this.z]],
+            fillOpacity = 0.6,
+            cellStats,
+            statsKey;
 
-        layers[[this.x, this.y, this.z]].setStyle({'color': color, 'fillOpacity': fillOpacity});
+        if (id === 'erase') {
+          fillOpacity = 0.2;
+        }
+
+        selectedCells[[this.x, this.y, this.z]] = {id: id, area: this.getArea()};
+        cellStats = getCellStats(selectedCells, id);
+
+        for (statsKey in cellStats) {
+          if (cellStats.hasOwnProperty(statsKey)) {
+            $('#' + statsKey + '-count').text(cellStats[statsKey].size);
+            $('#' + statsKey + '-area').text(cellStats[statsKey].area.toFixed(0));
+          }
+        }
+
+        layers[[this.x, this.y, this.z]].setStyle({'id': id, 'color': color, 'fillOpacity': fillOpacity});
       };
 
       map.on('mousemove', function(evt) {
